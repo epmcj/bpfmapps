@@ -23,7 +23,7 @@ uint64_t prog(struct packet *pkt)
     if (pkt->eth.h_proto == 0x0008) { // 0x0008 == ETH_P_PPP_MP
         struct ip *ipv4 = (struct ip *)(((uint8_t *)&pkt->eth) + ETH_HLEN);
 	//uint32_t *src_addr = ipv4->ip_src.s_addr;
-	//ipv4->ip_src.s_addr = 20481; // changing src address to 10.0.0.1.
+	ipv4->ip_src.s_addr = 20993; // changing src address to 1.82.0.0
 
 	//uint32_t rw_addr;
 	//bpf_map_lookup_elem(&rwtable, &src_addr, &rw_addr);        
