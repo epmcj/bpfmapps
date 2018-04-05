@@ -11,13 +11,13 @@ struct bpf_map_def SEC("maps") inports = {
 };
 
 struct info {
-    uint64_t num_pckts;
+    uint32_t num_pckts;
     uint64_t num_bytes;
 };
 
 struct bpf_map_def SEC("maps") counters = {
     .type = BPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(unsigned int), // IP protocol field 
+    .key_size = sizeof(uint32_t), // IP protocol field 
     .value_size = sizeof(struct info), 
     .max_entries = 256,
 };
@@ -28,11 +28,12 @@ uint64_t prog(struct packet *pkt)
     if (pkt->eth.h_proto == 0x0008) { // 0x0008 == ETH_P_PPP_MP
         struct ip *ipv4 = (struct ip *)(((uint8_t *)&pkt->eth) + ETH_HLEN);
 	struct info *pinfo;
+	unsigned int key = (unsigned int)ipv4->ip_p;	
+
+	bpf_map_lookup_elem(&counters, &key, &pinfo);
 	
-	bpf_map_lookup_elem(&counters, &ipv4->ip_p, &pinfo);
-	
-	//pinfo->num_pckts++;
-	//pinfo->num_bytes += (uint64_t) (ipv4->ip_len - (u_short)ipv4->ip_hl);
+	pinfo->num_pckts++;
+	pinfo->num_bytes += (uint64_t) (ipv4->ip_len - (u_short)ipv4->ip_hl);
     }
 
     /* learning switch behaviour */
