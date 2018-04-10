@@ -1,7 +1,7 @@
 #ifndef __EBPF_CMINSKETCH_H
 #define __EBPF_CMINSKETCH_H
 
-#include "bphmap.h"
+#include "bpfmap.h"
 
 struct bpf_map *cmin_map_alloc(union bpf_attr *attr);
 void *cmin_map_lookup_elem(struct bpf_map *map, void *key);

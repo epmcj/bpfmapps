@@ -3,7 +3,9 @@
 #include <stdbool.h>
 #include <string.h>
 #include <errno.h>
+
 #include "libghthash/ght_hash_table.h"
+#include "cmin_sketch.h"
 #include "bpfmap.h"
 
 typedef uint32_t counter_t; 
@@ -132,7 +134,7 @@ int cmin_map_update_elem(struct bpf_map *map, void *key, void *value, uint64_t m
         if (e_old) {
             old_val = (counter_t *) (e_old->key + round_up(map->key_size, 8));
             memcpy(new_val, old_val, sizeof(counter_t));
-            ght_remove(cmintab->cmintab, map->key_size, key);
+            ght_remove(cmintab->cmintab[i], map->key_size, key);
             free(e_old);
         } else {
 
