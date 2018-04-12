@@ -24,7 +24,7 @@ struct bpf_map_def SEC("maps") inports = {
 
 struct bpf_map_def SEC("maps") cms = {
     .type = BPF_MAP_TYPE_CMIN_SKETCH,
-    .key_size = sizeof(unsigned long), 
+    .key_size = 2*sizeof(uint32_t), // (ip_src,ip_dst)
     .value_size = sizeof(uint32_t),
     .max_entries = (7 << 16) | 6500,
 };
@@ -48,20 +48,30 @@ uint64_t prog(struct packet *pkt)
     // check if the ethernet frame contains an ipv4 payload
     if (pkt->eth.h_proto == 0x0008) { 
         struct ip *ipv4 = (struct ip*)(((uint8_t *)&pkt->eth) + ETH_HLEN);
-        uint32_t *p_dst = ip->ip_dst.s_addr;
+        uint32_t *p_src = &ipv4->ip_src.s_addr;
+        uint32_t *p_dst = &ipv4->ip_dst.s_addr;
         uint32_t value; // it is not really used
 
-        // register new ip packet to p_dst
-        bpf_map_update_elem(&cms, p_dst, &value, 0);
+	// must be(p_dst, p_src)
+        uint64_t pkey;
+        if ((*p_src) < (*p_dst)) {
+	    pkey  = (uint64_t)(*p_src) << 8;
+            pkey |= (uint64_t)(*p_dst);
+        } else {
+	    pkey  = (uint64_t)(*p_dst) << 8;
+            pkey |= (uint64_t)(*p_src);
+        }
+        // register new ip packet to p_src p_dst
+        bpf_map_update_elem(&cms, &pkey, &value, 0);
 
         // get number of ip packets
         uint32_t *num_p;
-        bpf_map_lookup_elem(&cms, p_dst, &num_p);
+        bpf_map_lookup_elem(&cms, &pkey, &num_p);
 
         // get the first time that p_dst received some ip packet or register
         // the packet time
         struct tstamp *ftime, difftime;
-        if (bpf_map_lookup_elem(&firsts, &p_dst, &ftime) != -1) {
+        if (bpf_map_lookup_elem(&firsts, &pkey, &ftime) != -1) {
             ftime->sec  = pkt->metadata.sec;
             ftime->nsec = pkt->metadata.nsec;
 
@@ -77,9 +87,9 @@ uint64_t prog(struct packet *pkt)
         uint32_t key = 0;
         bpf_map_lookup_elem(&max, &key, &max_pkts);
 
-        if (((*num_p)/difftime) > (*max_pkts)) {
+        if (((*num_p)/difftime.sec) > (*max_pkts)) {
             // notify
-            bpf_notify(1, p_dst, sizeof(uint32_t));
+            //bpf_notify(1, p_dst, sizeof(uint32_t));
         }
 
         /* check if the ipv4 packet contains an tcp payload
