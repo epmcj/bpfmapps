@@ -48,7 +48,7 @@ uint64_t prog(struct packet *pkt)
         struct ip *ipv4 = (struct ip*)(((uint8_t *)&pkt->eth) + ETH_HLEN);
         uint32_t *p_src = &ipv4->ip_src.s_addr;
         uint32_t *p_dst = &ipv4->ip_dst.s_addr;
-        uint32_t value; // it is not really used
+        uint32_t value = 0; // it is not really used
 
 	// must be (smaller, greater)
         struct flowtuple pkey;
@@ -59,14 +59,14 @@ uint64_t prog(struct packet *pkt)
 	    pkey.addr1 = (*p_dst);
             pkey.addr2 = (*p_src);
         }
-//        bpf_notify(1, &pkey, sizeof(struct flowtuple));
+
        // register new ip packet to p_src p_dst
         bpf_map_update_elem(&cms, &pkey, &value, 0);
 
         // get number of ip packets
-        uint32_t num_p = 0;
+        uint32_t *num_p;
         bpf_map_lookup_elem(&cms, &pkey, &num_p);
-        bpf_notify(1, &num_p, sizeof(uint32_t));
+        //bpf_notify(1, num_p, sizeof(uint32_t));
 
         // get the first time that p_dst received some ip packet or register
         // the packet time
@@ -79,20 +79,23 @@ uint64_t prog(struct packet *pkt)
             difftime.sec  = 0;
             difftime.nsec = 0;
         } else {
-           difftime.sec  = pkt->metadata.sec  - ftime.sec;
-           difftime.nsec = pkt->metadata.nsec - ftime.nsec;
-        }
+            difftime.sec  = pkt->metadata.sec  - ftime.sec;
+            difftime.nsec = pkt->metadata.nsec - ftime.nsec;
 
-        // get the maximum number of packets per second allowed
-        uint32_t max_pkts;
-        uint32_t key = 0;
-        bpf_map_lookup_elem(&max, &key, &max_pkts);
+            if (difftime.sec == 0) // avoid division by zero
+                difftime.sec = 1;
 
-/*        if ((num_p/difftime.sec) > max_pkts) {
-            // notify
-            bpf_notify(1, &pkey, sizeof(struct flowtuple));
+            // get the maximum number of packets per second allowed
+            uint32_t *max_pkts;
+            uint32_t key = 0;
+            bpf_map_lookup_elem(&max, &key, &max_pkts);
+
+            uint32_t pkts_sec = 4/2;//((*num_p)/difftime.sec);
+            if (pkts_sec > (*max_pkts))
+                bpf_notify(1, &pkey, sizeof(struct flowtuple));
+            else
+                bpf_notify(1, &pkts_sec, sizeof(uint32_t));
         }
-*/
     }
 
 
