@@ -8,11 +8,9 @@ struct tstamp {
     uint32_t nsec;
 };
 
-struct tcpflowtuple {
-    uint32_t src;
-    uint32_t dst;
-    uint16_t src_port;
-    uint16_t dst_port;
+struct flowtuple {
+    uint32_t addr1;
+    uint32_t addr2;
 };
 
 struct bpf_map_def SEC("maps") inports = {
@@ -24,7 +22,7 @@ struct bpf_map_def SEC("maps") inports = {
 
 struct bpf_map_def SEC("maps") cms = {
     .type = BPF_MAP_TYPE_CMIN_SKETCH,
-    .key_size = 2*sizeof(uint32_t), // (ip_src,ip_dst)
+    .key_size = sizeof(struct flowtuple), 
     .value_size = sizeof(uint32_t),
     .max_entries = (7 << 16) | 6500,
 };
@@ -38,7 +36,7 @@ struct bpf_map_def SEC("maps") max = {
 
 struct bpf_map_def SEC("maps") firsts = {
     .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(uint32_t), 
+    .key_size = sizeof(struct flowtuple), 
     .value_size = sizeof(struct tstamp),
     .max_entries = 256,
 };
@@ -52,50 +50,49 @@ uint64_t prog(struct packet *pkt)
         uint32_t *p_dst = &ipv4->ip_dst.s_addr;
         uint32_t value; // it is not really used
 
-	// must be(p_dst, p_src)
-        uint64_t pkey;
+	// must be (smaller, greater)
+        struct flowtuple pkey;
         if ((*p_src) < (*p_dst)) {
-	    pkey  = (uint64_t)(*p_src) << 8;
-            pkey |= (uint64_t)(*p_dst);
+	    pkey.addr1 = (*p_src);
+            pkey.addr2 = (*p_dst);
         } else {
-	    pkey  = (uint64_t)(*p_dst) << 8;
-            pkey |= (uint64_t)(*p_src);
+	    pkey.addr1 = (*p_dst);
+            pkey.addr2 = (*p_src);
         }
-        // register new ip packet to p_src p_dst
+//        bpf_notify(1, &pkey, sizeof(struct flowtuple));
+       // register new ip packet to p_src p_dst
         bpf_map_update_elem(&cms, &pkey, &value, 0);
 
         // get number of ip packets
-        uint32_t *num_p;
+        uint32_t num_p = 0;
         bpf_map_lookup_elem(&cms, &pkey, &num_p);
+        bpf_notify(1, &num_p, sizeof(uint32_t));
 
         // get the first time that p_dst received some ip packet or register
         // the packet time
-        struct tstamp *ftime, difftime;
-        if (bpf_map_lookup_elem(&firsts, &pkey, &ftime) != -1) {
-            ftime->sec  = pkt->metadata.sec;
-            ftime->nsec = pkt->metadata.nsec;
+        struct tstamp ftime, difftime;
+        if (bpf_map_lookup_elem(&firsts, &pkey, &ftime) == -1) {
+            ftime.sec  = pkt->metadata.sec;
+            ftime.nsec = pkt->metadata.nsec;
+            bpf_map_update_elem(&firsts, &pkey, &ftime, 0);
 
             difftime.sec  = 0;
             difftime.nsec = 0;
         } else {
-           difftime.sec  = pkt->metadata.sec  - ftime->sec;
-           difftime.nsec = pkt->metadata.nsec - ftime->nsec;
+           difftime.sec  = pkt->metadata.sec  - ftime.sec;
+           difftime.nsec = pkt->metadata.nsec - ftime.nsec;
         }
 
         // get the maximum number of packets per second allowed
-        uint32_t *max_pkts;
+        uint32_t max_pkts;
         uint32_t key = 0;
         bpf_map_lookup_elem(&max, &key, &max_pkts);
 
-        if (((*num_p)/difftime.sec) > (*max_pkts)) {
+/*        if ((num_p/difftime.sec) > max_pkts) {
             // notify
-            //bpf_notify(1, p_dst, sizeof(uint32_t));
+            bpf_notify(1, &pkey, sizeof(struct flowtuple));
         }
-
-        /* check if the ipv4 packet contains an tcp payload
-        if (ipv4->ip_p == 0x06) {
-
-        } */
+*/
     }
 
 
