@@ -13,6 +13,11 @@ struct flowtuple {
     uint32_t addr2;
 };
 
+struct flowinfo {
+    uint32_t num_pkts;
+    uint32_t num_bytes;
+};
+
 struct bpf_map_def SEC("maps") inports = {
     .type = BPF_MAP_TYPE_HASH,
     .key_size = 6, // MAC address is the key
@@ -23,11 +28,18 @@ struct bpf_map_def SEC("maps") inports = {
 struct bpf_map_def SEC("maps") counters = {
     .type = BPF_MAP_TYPE_HASH,
     .key_size = sizeof(struct flowtuple),
-    .value_size = sizeof(uint32_t),
+    .value_size = sizeof(struct flowinfo),
     .max_entries = 256,
 };
 
 struct bpf_map_def SEC("maps") first_time = {
+    .type = BPF_MAP_TYPE_HASH,
+    .key_size = sizeof(struct flowtuple),
+    .value_size = sizeof(struct tstamp),
+    .max_entries = 256,
+};
+
+struct bpf_map_def SEC("maps") last_time = {
     .type = BPF_MAP_TYPE_HASH,
     .key_size = sizeof(struct flowtuple),
     .value_size = sizeof(struct tstamp),
@@ -41,7 +53,8 @@ uint64_t prog(struct packet *pkt)
         struct ip *ipv4 = (struct ip*)(((uint8_t *)&pkt->eth) + ETH_HLEN);
         uint32_t *p_src = &ipv4->ip_src.s_addr;
         uint32_t *p_dst = &ipv4->ip_dst.s_addr;
-        
+        uint32_t  p_len = pkt->metadata.length >> 6;// / 64;        
+
         // must be (smaller, greater)
         struct flowtuple pkey;
         if ((*p_src) < (*p_dst)) {
@@ -53,22 +66,27 @@ uint64_t prog(struct packet *pkt)
         }
 
         // register new packet for the flow.
-        uint32_t *value;
-        uint32_t newvalue;
-        if (bpf_map_lookup_elem(&counters, &pkey, &value) == -1)
-            newvalue = 1;
-        else
-            newvalue = (*value) + 1;
+        struct flowinfo *value;
+        struct flowinfo newvalue;
+        if (bpf_map_lookup_elem(&counters, &pkey, &value) == -1) {
+            newvalue.num_pkts  = 1;
+            newvalue.num_bytes = p_len; 
+        } else {
+            newvalue.num_pkts  = value->num_pkts + 1;
+            newvalue.num_bytes = value->num_bytes + p_len;
+        }
         bpf_map_update_elem(&counters, &pkey, &newvalue, 0);
 
         // check if the flow was registered and register it if necessary.
-        struct tstamp ftime;
+        struct tstamp ctime, *ftime;
+        ctime.sec  = pkt->metadata.sec;
+        ctime.nsec = pkt->metadata.nsec;
         if (bpf_map_lookup_elem(&first_time, &pkey, &ftime) == -1) {
-            ftime.sec  = pkt->metadata.sec;
-            ftime.nsec = pkt->metadata.nsec;
-            bpf_map_update_elem(&first_time, &pkey, &ftime, 0);
-            bpf_notify(1, &ftime, sizeof(struct tstamp));
+            bpf_map_update_elem(&first_time, &pkey, &ctime, 0);
+            // bpf_notify(1, &ftime, sizeof(struct tstamp));
         }
+
+        bpf_map_update_elem(&last_time, &pkey, &ctime, 0);
     }
 
     /** Learning switch **/
