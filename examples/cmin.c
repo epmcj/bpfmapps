@@ -66,7 +66,6 @@ uint64_t prog(struct packet *pkt)
         // get number of ip packets
         uint32_t *num_p;
         bpf_map_lookup_elem(&cms, &pkey, &num_p);
-        //bpf_notify(1, num_p, sizeof(uint32_t));
 
         // get the first time that p_dst received some ip packet or register
         // the packet time
@@ -89,8 +88,8 @@ uint64_t prog(struct packet *pkt)
             uint32_t *max_pkts;
             uint32_t key = 0;
             bpf_map_lookup_elem(&max, &key, &max_pkts);
-
-            uint32_t pkts_sec = 4/2;//((*num_p)/difftime.sec);
+            //bpf_notify(1, max_pkts, sizeof(uint32_t));
+            uint32_t pkts_sec = ((*num_p) / difftime.sec);
             if (pkts_sec > (*max_pkts))
                 bpf_notify(1, &pkey, sizeof(struct flowtuple));
             else
