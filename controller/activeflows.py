@@ -8,8 +8,32 @@ import time
 import matplotlib
 import threading
 import sys
+from matplotlib import pyplot as plt
 
-ACTIVE_FLOWS = "activeflows"
+# default values
+READ_INTERVAL = 0.5 # s
+T_ACTIVE      = 0.5 # s
+AF_TABLE      = "activeflows"
+
+i = 1
+while i < len(sys.argv):
+    if sys.argv[i] == "-ri":
+        i += 1
+        READ_INTERVAL = float(sys.argv[i])
+        i += 1
+    elif sys.argv[i] == "-ta":
+        i += 1
+        T_ACTIVE = float(sys.argv[i])
+        i += 1
+    else:
+        print("Unknown parameter: " + sys.argv[i])
+        exit(1)
+
+plt.ion()
+plt.ylabel("Number of Active Flows")
+plt.xlabel("Time (s)")
+plt.draw()
+plt.show()
 
 class QueryThread(threading.Thread):
     def __init__(self, event, connection):
@@ -18,8 +42,8 @@ class QueryThread(threading.Thread):
         self.connection = connection
 
     def run(self):
-        while not self.stopped.wait(5):
-            self.connection.send(TableListRequest(table_name='activeflows'))
+        while not self.stopped.wait(READ_INTERVAL):
+            self.connection.send(TableListRequest(table_name="activeflows"))
 
 
 class ActiveFlowsApplication(eBPFCoreApplication):
@@ -33,9 +57,13 @@ class ActiveFlowsApplication(eBPFCoreApplication):
 
     @set_event_handler(Header.HELLO)
     def hello(self, connection, pkt):
-        with open('../examples/activeflows.o', 'rb') as f:
-            print("Installing the eBPF ELF")
+        with open("../examples/activeflows.o", "rb") as f:
+            print("Installing the eBPF ELF (activeflows.o)")
             connection.send(InstallRequest(elf=f.read()))
+            print("eBPF ELF file sent")
+            
+        self.ltime = 0
+        self.data  = [[], []]
 
         self.queryThreadStopEvent = threading.Event()
         self.queryThread = QueryThread(self.queryThreadStopEvent, connection)
@@ -46,25 +74,29 @@ class ActiveFlowsApplication(eBPFCoreApplication):
     @set_event_handler(Header.TABLE_LIST_REPLY)
     def table_list_reply(self, connection, pkt):
         #interval = float(sys.argv[1])
-	interval = 5
-        if pkt.HasField('items') and pkt.HasField('entry'):
+        if pkt.HasField("items") and pkt.HasField("entry"):
             item_size = pkt.entry.key_size + pkt.entry.value_size
 
-            if pkt.entry.table_name == ACTIVE_FLOWS:
-                fmt = "{}sII".format(pkt.entry.key_size) # triple ip_addr + sec + nsec
+            if pkt.entry.table_name == AF_TABLE:
+                fmt = "{}sII".format(pkt.entry.key_size) # (ip_addr + s + ns)
                 for i in range(pkt.n_items):
-                    paddr, tsec, tnsec = struct.unpack_from(fmt, pkt.items, i * item_size)
-                    addr1, addr2 = self.HexTo2IPAddr(paddr.encode('hex'))
-		    if time.time() - (float(tsec) + float(tnsec)/10**9) < 5:
-		    	print("Flow from {} to {} is active!".format(addr1, addr2))
-		    else:
-			self.queryThread.connection.send(TableEntryDeleteRequest(table_name=ACTIVE_FLOWS, key=paddr))
-		
+                    paddr, ts, tns = struct.unpack_from(fmt, pkt.items, 
+                                                        i * item_size)
+
+		    if time.time() - (float(ts) + float(tns)/10**9) > T_ACTIVE:
+    			self.queryThread.connection.send(TableEntryDeleteRequest(table_name=AF_TABLE, key=paddr))
+
+                self.ltime += READ_INTERVAL
+                self.data[0].append(self.ltime)
+                self.data[1].append(pkt.n_items)
+                plt.clf()
+                plt.plot(self.data[0], self.data[1])
+                plt.draw()
+                plt.pause(0.01)
 		print("There are {} active flows in total.").format(pkt.n_items)
-	
+		
 
-	
-	
-
-if __name__ == '__main__':
+if __name__ == "__main__":
+#    data  = [[], []]
+#    ltime = 0
     ActiveFlowsApplication().run()
