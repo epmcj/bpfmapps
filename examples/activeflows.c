@@ -25,7 +25,7 @@ struct bpf_map_def SEC("maps") activeflows = {
     .type = BPF_MAP_TYPE_HASH,
     .key_size = sizeof(struct flowtuple), 
     .value_size = sizeof(struct tstamp),
-    .max_entries = 2048,
+    .max_entries = 16384,
 };
 
 uint64_t prog(struct packet *pkt)

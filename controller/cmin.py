@@ -38,7 +38,7 @@ class CountMinApplication(eBPFCoreApplication):
 
     @set_event_handler(Header.NOTIFY)
     def notify_event(self, connection, pkt):
-        print '\n[{}] Received notify event {}, data length {}'.format(connection.dpid, pkt.id, len(pkt.data))
+        # print '\n[{}] Received notify event {}, data length {}'.format(connection.dpid, pkt.id, len(pkt.data))
         if len(pkt.data) == 8:
             addr1, addr2 = struct.unpack_from('II', pkt.data, 0)
             print "Addr1: " + Int2IP(addr1)

@@ -93,7 +93,7 @@ uint64_t prog(struct packet *pkt)
             if (pkts_sec > (*max_pkts))
                 bpf_notify(1, &pkey, sizeof(struct flowtuple));
             else
-                bpf_notify(1, &pkts_sec, sizeof(uint32_t));
+                bpf_notify(1, num_p, sizeof(uint32_t));
         }
     }
 

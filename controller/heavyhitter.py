@@ -128,6 +128,8 @@ class HeavyHitterIdApplication(eBPFCoreApplication):
                         connection.send(TableEntryDeleteRequest(table_name=LTIMET_NAME, key=paddr))
                         connection.send(TableEntryDeleteRequest(table_name=FTIMET_NAME, key=paddr))
                         connection.send(TableEntryDeleteRequest(table_name=COUNTT_NAME, key=paddr))
+#                    else:
+#                        print("missing time: {}-{}".format(ctime-ltime, active_int))
                     # print paddr.encode('hex') + " - #time: " + str(tsec) + " s " + str(tnsec)
 
 

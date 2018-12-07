@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 import struct
 
 from core import eBPFCoreApplication, set_event_handler
@@ -8,11 +9,21 @@ import csv
 import time
 import matplotlib
 import threading
+import sys
 
 from matplotlib import pyplot as plt
+matplotlib.rcParams.update({'font.size': 14})
 
 PROTO_TABLE_NAME = 'counters'
-MAX_TO_SHOW      = 30 # max is 256
+if len(sys.argv) > 1:
+    MAX_TO_SHOW = int(sys.argv[1])
+else:
+    MAX_TO_SHOW = 30 # max is 256
+
+if len(sys.argv) > 2:
+    time = int(sys.argv[2])
+else:
+    time = 10
 
 # table for ip protocols identification
 csvFile = open('../protocol-numbers.csv')
@@ -25,8 +36,6 @@ for row in reader:
         False
 
 plt.ion()
-plt.title('Protocol Packet Count')
-plt.xlabel('time (s)')
 plt.draw()
 plt.show()
 
@@ -37,7 +46,7 @@ class QueryThread(threading.Thread):
         self.connection = connection
 
     def run(self):
-        while not self.stopped.wait(10):
+        while not self.stopped.wait(time):
             self.connection.send(TableListRequest(table_name=PROTO_TABLE_NAME))
 
 
@@ -72,11 +81,16 @@ class ProtoCountApplication(eBPFCoreApplication):
                 data.append(npackets)
 
         plt.bar(x, data, align='center')
-        plt.xticks(x, x_labels, rotation=70)
-
-        print 'new'
+        plt.xticks(x, x_labels, rotation=75, fontsize=12)
+#        plt.title('Protocol Packet Count', fontsize=18)
+        plt.title('Contagem de Pacotes por Protocolo', fontsize=18)
+#        plt.xlabel('Protocols', fontsize=18)
+        plt.xlabel('Protocolos', fontsize=18)
+#        plt.ylabel('Number of Packets', fontsize=18)
+        plt.ylabel('Numero de Pacotes', fontsize=18)
+        plt.tight_layout()
         plt.draw()
-        plt.pause(0.01)
+        plt.pause(0.1)
 
 if __name__ == '__main__':
     ProtoCountApplication().run()
