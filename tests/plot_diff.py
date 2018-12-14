@@ -32,7 +32,7 @@ ref = [[], []]
 # ref[1].append(0)
 # ref[0].append(3.00)
 # ref[1].append(0)
-print("Reading reference")
+
 for line in fref:
     values = line.split(",")
 #     ref[0].append(float(values[0]) + 3.5)
@@ -42,7 +42,6 @@ for line in fref:
         break
 
 data = [[], []]
-print("Reading input")
 for line in fin:
     values = line.split(",")
     data[0].append(float(values[0]))
@@ -63,24 +62,26 @@ for i in range(len(ref[0])):
 ref[0]  = [x/60 for x in ref[0]]
 data[0] = [x/60 for x in data[0]]
 
-plt.plot(data[0], data[1], linestyle="-", label="Medido", color="b")
-plt.plot(ref[0], ref[1], linestyle=":", label="Real", color="y")
-plt.legend(["Medido", "Real"], ncol=2, fontsize=fsize)
-axes = plt.gca()
-plt.ylim(top=500)
-for label in (axes.get_xticklabels() + axes.get_yticklabels()):
-    label.set_fontsize(fsize)
+diffv = []
+for i in range(len(ref[1])):
+    if ref[1][i] == 0:
+        diffv.append(0)
+    else:
+        diffv.append(100*(data[1][i] - ref[1][i])/ref[1][i])
 
-# plt.ylabel("Number of Active Flows")
-# plt.xlabel("Time (s)")
+print("min: {} med: {} max: {}".format(min(diffv), sum(diffv)/len(diffv), max(diffv)))
+# plt.plot(data[0], diffv, linestyle="-", label="Medido", color="k")
+# axes = plt.gca()
+# # plt.ylim(bottom=-10, top=10)
+# for label in (axes.get_xticklabels() + axes.get_yticklabels()):
+#     label.set_fontsize(fsize)
 
-plt.ylabel("Número de Fluxos Ativos", fontsize=fsize)
-plt.xlabel("Tempo (min)", fontsize=fsize)
+# plt.ylabel("Erro (%)", fontsize=fsize)
+# plt.xlabel("Tempo (min)", fontsize=fsize)
 
-fig = plt.gcf()
-fig.set_size_inches(15, 8)
+# fig = plt.gcf()
+# fig.set_size_inches(15, 8)
 
-plt.tight_layout()
-print("Saving")
-plt.savefig(fout, facecolor="w", transparent=True)
-plt.close()
+# plt.tight_layout()
+# plt.savefig(fout, facecolor="w", transparent=True)
+# plt.close()

@@ -1,0 +1,9 @@
+./tests/output2013_05.pcap
+./tests/teste13-12.pcap
+./tests/output13-12.txt
+./tests/af2013_05.txt
+./tests/output2013.pcap
+*.pcap
+tests/*.pdf
+tests/*.png
+output*.txt

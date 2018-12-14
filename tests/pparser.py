@@ -1,4 +1,5 @@
 import dpkt
+import datetime
 import sys
 
 def saddr(addr):
@@ -26,18 +27,17 @@ if len(sys.argv) < 2:
     print("Missing pcap file.")
     exit(1)
 
-# if len(sys.argv) < 3:
-#     print("Missing output file.")
-#     exit(1)
+if len(sys.argv) < 3:
+    print("Missing output file.")
+    exit(1)
 
 filename = sys.argv[1]
 if not filename.endswith(".pcap"):
     print("File must be pcap.")
     exit(1)
 
-# outfname = sys.argv[2]
-# outfile = open(outfname, "w")
-
+outfname = sys.argv[2]
+outfile = open(outfname, "w")
 print("Reading " + filename)
 for ts, pkt in dpkt.pcap.Reader(open(filename, "r")):
 
@@ -45,25 +45,34 @@ for ts, pkt in dpkt.pcap.Reader(open(filename, "r")):
     eth = dpkt.ethernet.Ethernet(pkt) 
     if eth.type!=dpkt.ethernet.ETH_TYPE_IP:
        continue
-
+    
+    dt = datetime.datetime.utcfromtimestamp(ts)
+    # ptime = dt.hour
+    # ptime = (ptime * 60) + dt.minute
+    # ptime = (ptime * 60) + dt.second
+    # ptime = (ptime * (10**6)) + dt.microsecond
+    etime = (dt - datetime.datetime(1970, 1, 1))
+    ptime = etime.total_seconds()
+    
     ip = eth.data
     ipcounter += 1
 
     src = addr2int(ip.src)
     dst = addr2int(ip.dst)
-
     addr1 = src
     addr2 = dst
     if src > dst:
         addr1 = dst
         addr2 = src
 
-    # outfile.write(str(addr1))
-    # outfile.write(";")
-    # outfile.write(str(addr2))
-    # outfile.write(";")
-    # outfile.write(str(len(eth)))
-    # outfile.write("\n")
+    outfile.write(str(addr1))
+    outfile.write(",")
+    outfile.write(str(addr2))
+    outfile.write(",")
+    outfile.write(str(len(eth)))
+    outfile.write(",")
+    outfile.write(str(ptime))
+    outfile.write("\n")
 
     # print("src: " + saddr(ip.src) + "(" + str(src) + ") dst: " + \
     #       saddr(ip.dst) + "(" + str(dst) + ") len: " + str(len(eth)))
