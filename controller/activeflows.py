@@ -96,7 +96,7 @@ class ActiveFlowsApplication(eBPFCoreApplication):
                 self.nonZero = True
             # avoid writing zeros at the end of simulation
             if (pkt.n_items != 0 or not self.nonZero):
-                self.out.write("%.2f,%d\n" % (self.ltime, pkt.n_items))
+                self.out.write("%.2f,%d\n" % (self.ltime, self.data[1][-1]))
             
             plt.clf()
             plt.plot(self.data[0], self.data[1])
