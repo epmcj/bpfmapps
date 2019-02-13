@@ -35,6 +35,14 @@ const struct bpf_map_ops bpf_map_types[] = {
         .map_lookup_elem = cmin_map_lookup_elem,
         .map_update_elem = cmin_map_update_elem,
         .map_delete_elem = cmin_map_delete_elem,
+    },
+    [BPF_MAP_TYPE_IBF] = {
+        .map_alloc = ibf_map_alloc,
+        .map_free = ibf_map_free,
+        .map_get_next_key = ibf_map_get_next_key,
+        .map_lookup_elem = ibf_map_lookup_elem,
+        .map_update_elem = ibf_map_update_elem,
+        .map_delete_elem = ibf_map_delete_elem,
     }
 
 };

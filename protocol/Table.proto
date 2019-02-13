@@ -10,6 +10,7 @@ message TableDefinition {
         HASH        = 1;
         ARRAY       = 2;
         CMIN_SKETCH = 3;
+        IBF         = 4;
     }
 
     required string table_name    = 1;
