@@ -1,3 +1,10 @@
+/* Invertible Bloom Filter implementation
+ * References:
+ * (1) "Invertible Bloom Lookup Tables" by Goodrich, M. and Mitzenmacher, M.
+ * (2) The Invertible Bloom Filter by James, M. Available at:
+ *     https://www.i-programmer.info/programming/theory/4641-the-invertible-bloom-filter.html 
+ */
+
 #ifndef __EBPF_ibf_H
 #define __EBPF_ibf_H
 
