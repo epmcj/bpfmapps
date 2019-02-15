@@ -45,7 +45,7 @@ void print_key(void*key, uint32_t key_size){
  */
 struct bpf_map *ibf_map_alloc(union bpf_attr *attr) {
     struct bpf_ibf *ibftab;
-    int err, i;
+    int err, i, j;
 
     if (attr->map_flags & ~BPF_F_NO_PREALLOC) {
         /* reserved bits should not be used */
@@ -85,14 +85,23 @@ struct bpf_map *ibf_map_alloc(union bpf_attr *attr) {
         goto free_ibftab;
     }
 
-    /* generating hash init values !! NEEDS TO GUARANTEE DIFFERENT VALUES !! */
+    /* generating distinct hash init values*/
     ibftab->initvals = malloc(ibftab->n_hashes * sizeof(uint32_t));
     if (!ibftab->initvals) {
         goto free_ibftab;
     }
 
-    for (i = 0; i < ibftab->n_hashes; i++) {
+    i = 0;
+    while (i < ibftab->n_hashes) {
         ibftab->initvals[i] = rand();
+        for (j = 0; j < i; j++){
+            /* must pick another number if the new one was already picked */
+            if (ibftab->initvals[i] == ibftab->initvals[j]) {
+                i--;
+                break;
+            }
+        }
+        i++;
     }
 
     return &ibftab->map;
