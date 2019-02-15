@@ -8,7 +8,7 @@
 #include "ibf.h"
 #include "lookuphash/lookup3.h"
 
-typedef uint32_t counter_t; 
+typedef uint8_t counter_t; 
 
 struct bpf_ibf {
     struct bpf_map      map;
@@ -28,6 +28,15 @@ void xor(void *dst, void *src, int len) {
     for (i = 0; i < len; i++) {
         (*x1) ^= (*x2);
         x1++; x2++;
+    }
+}
+
+// FOR DEBUG !!
+void print_key(void*key, uint32_t key_size){
+    int i;
+    char* kref = (char*) key;
+    for (i = 0; i < key_size; i++) {
+        printf("%02x", kref[i]);
     }
 }
 
@@ -59,7 +68,8 @@ struct bpf_map *ibf_map_alloc(union bpf_attr *attr) {
     ibftab->map.max_entries = ibftab->n_buckets;
     ibftab->map.map_flags   = attr->map_flags;
 
-printf("ibf: %d hashes and %d buckets\n", ibftab->n_hashes, ibftab->n_buckets);
+    //printf("ibf: %d hashes and %d buckets\n", ibftab->n_hashes, 
+    //                                            ibftab->n_buckets);
     /* check sanity of attributes. */
     if (ibftab->n_hashes == 0 || ibftab->n_buckets == 0 || 
         ibftab->map.key_size == 0) {
@@ -67,7 +77,9 @@ printf("ibf: %d hashes and %d buckets\n", ibftab->n_hashes, ibftab->n_buckets);
     }
 
     /* creating table. */
-    ibftab->elem_size = sizeof(counter_t) + round_up(attr->key_size, 8);
+    //ibftab->elem_size = sizeof(counter_t) + round_up(attr->key_size, 8);
+    ibftab->elem_size = sizeof(counter_t) + attr->key_size;    
+    //printf("elm_size:%ld\n", ibftab->elem_size);
     ibftab->ibf_array = calloc(ibftab->n_buckets, ibftab->elem_size);
     if (!ibftab->ibf_array) {
         goto free_ibftab;
@@ -97,26 +109,31 @@ void *ibf_map_lookup_elem(struct bpf_map *map, void *key) {
     uint16_t i, pos;
     counter_t *count;
     char *p;
-printf("looking <%d>\n", *((uint32_t *)key));
+    //printf("looking: ");
+    //print_key(key, ibftab->map.key_size);
     /* finds min value of the entries in the tables */
     for (i = 1; i < ibftab->n_hashes; i++) {
         pos = hashlittle(key, ibftab->map.key_size, ibftab->initvals[i]);
         pos = pos % ibftab->n_buckets;
+        //printf(" (%d:%d) ", i, pos);
         p = (char *) (ibftab->ibf_array + (pos * ibftab->elem_size));
         count = (counter_t *) p;
         if (*count == 0) {
             /* element not in set */
-            break;
+            //printf(" not in set\n");
+            return NULL;
         } else if (*count == 1) {
             /* checking for key */
             p += sizeof(counter_t);
             if (memcmp(key, p, ibftab->map.key_size) == 0) {
                 /* found the element */
+                //printf(" found in set\n");
                 return (void *) p;
             }
         }
     }
-    return NULL;
+    //printf(" collision detected\n");
+    return (void *) p;
 }
 
 /** insert the element in IBF. 
@@ -128,7 +145,9 @@ int ibf_map_update_elem(struct bpf_map *map, void *key, void *value, uint64_t ma
     uint16_t i, pos;
     counter_t *count;
     char *p;
-printf("updating <%d>\n", *((uint32_t *)key));
+//printf("updating: ");
+//print_key(key, ibftab->map.key_size);
+//printf("\n");
     for (i = 0; i < ibftab->n_hashes; i++) {
         pos = hashlittle(key, ibftab->map.key_size, ibftab->initvals[i]);
         pos = pos % ibftab->n_buckets;
@@ -148,7 +167,7 @@ int ibf_map_delete_elem(struct bpf_map *map, void *key) {
     uint16_t i, pos;
     counter_t *count;
     char *p;
-printf("deleting <%d>\n", *((uint32_t *)key));
+//printf("deleting <%d>\n", *((uint32_t *)key));
     for (i = 0; i < ibftab->n_hashes; i++) {
         pos = hashlittle(key, ibftab->map.key_size, ibftab->initvals[i]);
         pos = pos % ibftab->n_buckets;
@@ -186,7 +205,7 @@ int ibf_map_get_next_key(struct bpf_map *map, void *key, void *last_key) {
         ibftab->backup_array = malloc(array_size);
         if (!ibftab->backup_array) {
             errno = ENOMEM;
-            return NULL;
+            return 0;
         }
         memcpy(ibftab->backup_array, ibftab->ibf_array, array_size);
     }
