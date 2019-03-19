@@ -11,10 +11,20 @@ struct bpf_map_def SEC("maps") inports = {
 };
 
 struct bpf_map_def SEC("maps") numpckts = {
+//    .type = BPF_MAP_TYPE_SC_ARRAY,
     .type = BPF_MAP_TYPE_ARRAY,
     .key_size = sizeof(unsigned int),
     .value_size = sizeof(uint64_t),
     .max_entries = 1,
+};
+
+// number of packets per protocol
+struct bpf_map_def SEC("maps") numppp = {
+//    .type = BPF_MAP_TYPE_SC_ARRAY,
+    .type = BPF_MAP_TYPE_ARRAY,
+    .key_size = sizeof(unsigned int),
+    .value_size = sizeof(uint64_t),
+    .max_entries = 4,
 };
 
 uint64_t prog(struct packet *pkt)
@@ -23,12 +33,22 @@ uint64_t prog(struct packet *pkt)
     if (pkt->eth.h_proto == 0x0008) {
         struct ip *ipv4 = (struct ip *)(((uint8_t *)&pkt->eth) + ETH_HLEN);        
 
-        // Getting counter
-        uint64_t *num; unsigned int index = 0;
-        bpf_map_lookup_elem(&numpckts, &index, &num);
-        (*num)++;
+        // Updating counter
+        uint64_t *num; 
+        unsigned int index = 0;
+        //bpf_map_lookup_elem(&numpckts, &index, &num);
+        //(*num)++;
         
-        // TCP = 0x0006
+        if (ipv4->ip_p == 0x06) { // tcp
+            index = 1;
+        } else if (ipv4->ip_p == 0x11) { // udp
+            index = 2;        
+        } else if (ipv4->ip_p == 0x01) { // icmp
+            index = 3;
+        }
+        
+        bpf_map_lookup_elem(&numppp, &index, &num);
+        (*num)++;        
     }
 
 

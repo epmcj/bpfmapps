@@ -256,15 +256,16 @@ int recv_table_list_request(void *buffer, Header *header) {
             memcpy(items, data, n_items * item_size);
         }
 
-        else if (tab_entry->type == BPF_MAP_TYPE_NEW_TABLE) {
+        else if (tab_entry->type == BPF_MAP_TYPE_SC_ARRAY) {
             uint32_t key = 0;
             n_items = tab_entry->max_entries;
             item_size = tab_entry->value_size;
-            printf("requesting new table\n");
+            
             void *data;
             items = malloc(n_items * item_size);
             bpf_lookup_elem(tab_entry->fd, &key, &data);
             memcpy(items, data, n_items * item_size);
+            memset(data, 0, n_items * item_size);
         } 
         
         else if (tab_entry->type == BPF_MAP_TYPE_IBF) {

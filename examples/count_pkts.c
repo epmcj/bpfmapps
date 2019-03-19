@@ -11,6 +11,7 @@ struct bpf_map_def SEC("maps") inports = {
 };
 
 struct bpf_map_def SEC("maps") numpckts = {
+//    .type = BPF_MAP_TYPE_SC_ARRAY,
     .type = BPF_MAP_TYPE_ARRAY,
     .key_size = sizeof(unsigned int),
     .value_size = sizeof(uint64_t),
